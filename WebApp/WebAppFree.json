@@ -1,0 +1,67 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "serviceapp01Name": {
+            "type": "string",
+            "minLength": 1
+        },
+        "serviceapp01SKU": {
+            "type": "string",
+            "allowedValues": [
+                "Free",
+                "Shared",
+                "Basic",
+                "Standard"
+            ],
+            "defaultValue": "Free"
+        },
+        "serviceapp01WorkerSize": {
+            "type": "string",
+            "allowedValues": [
+                "0",
+                "1",
+                "2"
+            ],
+            "defaultValue": "0"
+        }
+    },
+    "resources": [
+        {
+            "name": "[variables('app01Name')]",
+            "type": "Microsoft.Web/sites",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-08-01",
+            "dependsOn": [
+                "[concat('Microsoft.Web/serverfarms/', parameters('serviceapp01Name'))]"
+            ],
+            "tags": {
+                "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('serviceapp01Name'))]": "Resource",
+                "displayName": "app01"
+            },
+            "properties": {
+                "name": "[variables('app01Name')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms/', parameters('serviceapp01Name'))]"
+            }
+        },
+        {
+            "name": "[parameters('serviceapp01Name')]",
+            "type": "Microsoft.Web/serverfarms",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2019-08-01",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "serviceapp01"
+            },
+            "properties": {
+                "name": "[parameters('serviceapp01Name')]",
+                "sku": "[parameters('serviceapp01SKU')]",
+                "workerSize": "[parameters('serviceapp01WorkerSize')]",
+                "numberOfWorkers": 1
+            }
+        }
+    ],
+    "variables": {
+        "app01Name": "[concat('app01', uniqueString(resourceGroup().id))]"
+    }
+}
