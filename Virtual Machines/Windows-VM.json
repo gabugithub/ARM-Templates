@@ -1,0 +1,164 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storage01Type": {
+            "type": "string",
+            "defaultValue": "Standard_LRS",
+            "allowedValues": [
+                "Standard_LRS",
+                "Standard_ZRS",
+                "Standard_GRS",
+                "Standard_RAGRS",
+                "Premium_LRS"
+            ]
+        },
+        "vm01Name": {
+            "type": "string",
+            "minLength": 1
+        },
+        "vm01AdminUserName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "vm01AdminPassword": {
+            "type": "securestring"
+        },
+        "vm01WindowsOSVersion": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "allowedValues": [
+                "2008-R2-SP1",
+                "2012-Datacenter",
+                "2012-R2-Datacenter",
+                "Windows-Server-Technical-Preview"
+            ]
+        }
+    },
+    "resources": [
+        {
+            "name": "[variables('storage01Name')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "storage01"
+            },
+            "properties": {
+                "accountType": "[parameters('storage01Type')]"
+            }
+        },
+        {
+            "name": "vnet01",
+            "type": "Microsoft.Network/virtualNetworks",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "vnet01"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('vnet01Prefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('vnet01Subnet1Name')]",
+                        "properties": {
+                            "addressPrefix": "[variables('vnet01Subnet1Prefix')]"
+                        }
+                    }
+                    
+                ]
+            }
+        },
+        {
+            "name": "[variables('vm01NicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', 'vnet01')]"
+            ],
+            "tags": {
+                "displayName": "vm01Nic"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('vm01SubnetRef')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('vm01Name')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [
+                "[concat('Microsoft.Storage/storageAccounts/', variables('storage01Name'))]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('vm01NicName'))]"
+            ],
+            "tags": {
+                "displayName": "vm01"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('vm01VmSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('vm01Name')]",
+                    "adminUsername": "[parameters('vm01AdminUsername')]",
+                    "adminPassword": "[parameters('vm01AdminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('vm01ImagePublisher')]",
+                        "offer": "[variables('vm01ImageOffer')]",
+                        "sku": "[parameters('vm01WindowsOSVersion')]",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "vm01OSDisk",
+                        "vhd": {
+                            "uri": "[concat('http://', variables('storage01Name'), '.blob.core.windows.net/', variables('vm01StorageAccountContainerName'), '/', variables('vm01OSDiskName'), '.vhd')]"
+                        },
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vm01NicName'))]"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variables": {
+        "storage01Name": "[concat('storage01', uniqueString(resourceGroup().id))]",
+        "vnet01Prefix": "10.0.0.0/16",
+        "vnet01Subnet1Name": "Subnet-1",
+        "vnet01Subnet1Prefix": "10.0.0.0/24",
+        "vm01ImagePublisher": "MicrosoftWindowsServer",
+        "vm01ImageOffer": "WindowsServer",
+        "vm01OSDiskName": "vm01OSDisk",
+        "vm01VmSize": "Standard_D1",
+        "vm01VnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet01')]",
+        "vm01SubnetRef": "[concat(variables('vm01VnetID'), '/subnets/', variables('vnet01Subnet1Name'))]",
+        "vm01StorageAccountContainerName": "vhds",
+        "vm01NicName": "[concat(parameters('vm01Name'), 'NetworkInterface')]"
+    }
+}
